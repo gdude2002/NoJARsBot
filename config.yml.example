@@ -1,0 +1,22 @@
+discord:  # Discord server settings
+  token: ""  # Bot login token
+
+  server: ""  # Server ID to deny JARs on
+
+  use_roles: false  # Set to False if you'd rather check permissions directly
+
+  roles:  # List of role IDs that can use commands, if use_roles is True
+  - ""
+
+  permissions:  # List of permissions needed to use commands, if use_roles is False
+
+  # Possible permissions: create_instant_invite, kick_members, ban_members,
+  # administrator, manage_channels, manage_server, read_messages, send_messages,
+  # send_tts_messages,  manage_messages, embed_links, attach_files,
+  # read_message_history, mention_everyone, external_emojis, connect, speak,
+  # mute_members, deafen_members, move_members, use_voice_activation,
+  # change_nickname, manage_nicknames, manage_roles
+
+  - "administrator"
+
+auto_reconnect: true
