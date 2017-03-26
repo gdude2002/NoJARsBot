@@ -2,6 +2,7 @@ discord:  # Discord server settings
   token: ""  # Bot login token
 
   server: ""  # Server ID to deny JARs on
+  admin_channel: ""  # Channel to mirror and notify to
 
   use_roles: false  # Set to False if you'd rather check permissions directly
 

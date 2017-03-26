@@ -17,6 +17,9 @@ config = {}
 if not os.path.exists("logs"):
     os.mkdir("logs")
 
+if not os.path.exists("tmp"):
+    os.mkdir("tmp")
+
 logging.basicConfig(
     format="%(asctime)s | %(name)s | [%(levelname)s] %(message)s",
     level=logging.INFO

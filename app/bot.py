@@ -1,9 +1,14 @@
 # coding=utf-8
+import os
+
+from typing import Dict
+
+import aiohttp
 import asyncio
 import logging
 import re
 
-from discord import Channel
+from discord import Channel, Object
 from discord import Client
 from discord import Member
 from discord import Message
@@ -23,6 +28,38 @@ class Bot(Client):
 
         self.logger = logging.getLogger("bot")
         self.rcon_logger = logging.getLogger("rcon")
+
+    async def notify_admin(self, message: str, filename: str = None):
+        admin_channel = self._config["discord"]["admin_channel"]
+
+        if admin_channel:
+            if not filename:
+                await self.send_message(Object(admin_channel), message)
+            else:
+                try:
+                    await self.send_file(Object(admin_channel), filename, content=message)
+                except Exception as e:
+                    self.send_message(
+                        Object(admin_channel),
+                        "An exception occurred while trying to upload {}:\n\n```{}```\n\nAttached message: {}".format(filename, e, message)
+                    )
+
+    async def download_attachment(self, attachment: Dict[str, str], user: Member):
+        url = attachment["url"]
+        filename = attachment["filename"]
+
+        path = "tmp/{}-{}-{}".format(user.display_name, "", filename)
+
+        session = aiohttp.ClientSession()
+
+        async with session.get(url) as response:
+            data = await response.read()
+
+            with open(path, "wb") as fh:
+                fh.write(data)
+                fh.flush()
+
+        return path
 
     def is_allowed(self, user: Member, channel: Channel):
         if not isinstance(user, Member):
@@ -57,14 +94,44 @@ class Bot(Client):
     def is_correct_server(self, server: str):
         return server == self._config["discord"]["server"]
 
-    def message_has_jar(self, message: Message):
+    async def check_jar_and_download(self, message: Message):
         if re.match(r".*://[^\s/]+/[^\s/]+\.jar.*", message.clean_content, (re.IGNORECASE | re.MULTILINE)):
+            await self.notify_admin(
+                "{} sent the following message containing suspicious URLs:"
+                "\n\n```{}```".format(message.author.mention, message.content)
+            )
+
             return "URL"
         if re.match(r"www\.[^\s/]+\.[^\s/]+/[^\s/]+\.jar.*", message.clean_content, (re.IGNORECASE | re.MULTILINE)):
+            await self.notify_admin(
+                "{} sent the following message containing suspicious URLs:"
+                "\n\n```{}```".format(message.author.mention, message.content)
+            )
+
             return "URL"
 
         for attachment in message.attachments:
             if re.match(r".*\.jar", attachment["filename"], re.IGNORECASE):
+                try:
+                    result = await self.download_attachment(attachment, message.author)
+                    if message.content:
+                        await self.notify_admin(
+                            "{} attempted to upload this file. Message text:"
+                            "\n\n```{}```".format(message.author.mention, message.content),
+                            result
+                        )
+                    else:
+                        await self.notify_admin(
+                            "{} attempted to upload this file.".format(message.author.mention),
+                            result
+                        )
+
+                    os.remove(result)
+                except Exception as e:
+                    await self.notify_admin(
+                        "Failed to download suspicious file `{}` posted by {}:"
+                        "\n\n```{}```".format(attachment["filename"], message.author.mention, e)
+                    )
                 return "EMBED"
 
     def log_message(self, message: Message):
@@ -93,9 +160,9 @@ class Bot(Client):
 
         self.log_message(message)
 
-        has_jar = self.message_has_jar(message)
-
         if not self.is_allowed(message.author, message.channel):
+            has_jar = await self.check_jar_and_download(message)
+
             if has_jar == "URL":
                 self.logger.info("Message contains a URL ending in .jar")
 
